@@ -1,0 +1,42 @@
+---
+title: "RFIF: Fast Iterative Filtering in R"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{RFIF: Fast Iterative Filtering in R}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  eval = FALSE,
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+## Overview
+
+`RFIF` wraps the upstream C implementation of Fast Iterative Filtering (FIF) and exposes it as a simple R call.
+
+## Example
+
+```{r}
+library(RFIF)
+
+t <- seq(0, 1, length.out = 2000)
+x <- sin(2*pi*5*t) + 0.5*sin(2*pi*20*t)
+
+res <- rfif(x)
+
+# Reconstruction
+max(abs(x - (colSums(res$imfs) + res$residual)))
+```
+
+## Plot IMFs
+
+```{r, eval=FALSE}
+matplot(t, t(res$imfs), type="l", lty=1)
+lines(t, res$residual, lwd=2)
+```

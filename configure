@@ -1,0 +1,59 @@
+#!/bin/sh
+# configure: optional FFTW3 detection via pkg-config
+# Also detects Apple clang to silence R header warnings only when needed.
+
+echo "Configuring RFIF..."
+
+FFTW_CFLAGS=""
+FFTW_LIBS=""
+RFIF_EXTRA_CFLAGS=""
+
+# ------------------------------------------------------------
+# Detect compiler (needed for Apple clang R header workaround)
+# ------------------------------------------------------------
+if command -v "${CC}" >/dev/null 2>&1; then
+  CC_NAME="$(${CC} --version 2>/dev/null | head -n 1)"
+else
+  CC_NAME=""
+fi
+
+case "$CC_NAME" in
+  *clang*)
+    RFIF_EXTRA_CFLAGS="-DRFIF_SUPPRESS_R_HEADER_WARNINGS"
+    ;;
+esac
+
+# ------------------------------------------------------------
+# Detect FFTW3 via pkg-config (portable approach)
+# ------------------------------------------------------------
+if command -v pkg-config >/dev/null 2>&1; then
+  if pkg-config --exists fftw3; then
+
+    FFTW_INC="$(pkg-config --variable=includedir fftw3 2>/dev/null)"
+
+    if [ -n "$FFTW_INC" ]; then
+      FFTW_CFLAGS="-DRFIF_USE_FFTW -isystem $FFTW_INC"
+    else
+      FFTW_CFLAGS="$(pkg-config --cflags fftw3) -DRFIF_USE_FFTW"
+    fi
+
+    FFTW_LIBS="$(pkg-config --libs fftw3)"
+
+    echo "  Found fftw3 via pkg-config (enabling fast FFT)."
+
+  else
+    echo "  fftw3 not found via pkg-config; using fallback FFT."
+  fi
+else
+  echo "  pkg-config not found; using fallback FFT."
+fi
+
+# ------------------------------------------------------------
+# Generate portable src/Makevars
+# ------------------------------------------------------------
+sed -e "s|@FFTW_CFLAGS@|$FFTW_CFLAGS $RFIF_EXTRA_CFLAGS|g" \
+    -e "s|@FFTW_LIBS@|$FFTW_LIBS|g" \
+    src/Makevars.in > src/Makevars
+
+echo "Done."
+exit 0

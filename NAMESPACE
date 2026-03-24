@@ -1,0 +1,2 @@
+useDynLib(RFIF, .registration=TRUE)
+export(rfif)

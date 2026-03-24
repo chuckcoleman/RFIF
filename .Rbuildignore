@@ -1,0 +1,3 @@
+^\.github$
+^cran-comments\.md$
+^.*\.log$
