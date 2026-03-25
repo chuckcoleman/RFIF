@@ -4703,21 +4703,40 @@ mask = (double *)realloc(mask, sizeof(double) * dim_a);
                 free(fappo);
                 fappoB = 0;
             }
-            fappo = (double *)malloc(sizeof(double) * N_r);
+            size_t nr_bytes;
+            size_t n_bytes;
+
+            if (N_r <= 0) {
+                error("N_r must be positive");
+            }
+            if (N <= 0) {
+                error("N must be positive");
+            }
+
+            nr_bytes = sizeof(*h) * (size_t)N_r;
+            n_bytes  = sizeof(*h) * (size_t)N;
+
+            fappo = (double *)malloc(nr_bytes);
+            if (fappo == NULL) {
+                error("allocation failure for fappo");
+            }
             fappoB = 1;
 
             for (int i = 0; i < Nxs; i++)
             {
-                memcpy(fappo + N * i, h, N * 8);
+                memcpy(fappo + (size_t)N * (size_t)i, h, n_bytes);
             }
             if (hB)
             {
                 free(h);
                 hB = 0;
             }
-            h = (double *)malloc(sizeof(double) * N_r);
+            h = (double *)malloc(nr_bytes);
+            if (h == NULL) {
+                error("allocation failure for h");
+            }
             hB = 1;
-            memcpy(h, fappo, 8 * N_r);
+            memcpy(h, fappo, nr_bytes);
 
             if (fappoB)
             {
