@@ -1,0 +1,10 @@
+RFIF bundles or adapts code from the following upstream projects.
+
+FIF_C
+Copyright (c) 2022 Emanuele Papini
+
+FIF
+Copyright (c) 2018 Antonio Cicone
+
+These components are distributed under the MIT License.
+See the upstream repositories and source headers for details.

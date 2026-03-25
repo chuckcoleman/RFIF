@@ -1,21 +1,16 @@
-## RFIF citation information
+citHeader("RFIF citation information")
 
-## Package citation
 bibentry(
   bibtype = "Manual",
   title   = "RFIF: Fast Iterative Filtering in R",
   author  = person("Chuck", "Coleman"),
   year    = "2026",
-  note    = "R package version 0.1",
+  note    = "R package version 1.0",
   url     = "https://github.com/ChuckColeman/RFIF",
-  textVersion = paste(
-    "Coleman, C.",
-    sprintf("RFIF: Fast Iterative Filtering in R (R package version %s).",
-            packageVersion("RFIF"))
-  )
+  textVersion =
+    "Coleman, C. (2026). RFIF: Fast Iterative Filtering in R. R package version 1.0. https://github.com/ChuckColeman/RFIF"
 )
 
-## Upstream C implementation
 bibentry(
   bibtype = "Misc",
   title   = "FIF_C: Fast Iterative Filtering (C implementation)",
@@ -23,67 +18,57 @@ bibentry(
   year    = "2024",
   howpublished = "GitHub repository",
   url     = "https://github.com/EmanuelePapini/FIF_C",
-  textVersion = paste(
-    "Papini, E. (2024).",
-    "FIF_C: Fast Iterative Filtering (C implementation).",
-    "Available at https://github.com/EmanuelePapini/FIF_C"
-  )
+  textVersion =
+    "Papini, E. (2024). FIF_C: Fast Iterative Filtering (C implementation). GitHub repository. https://github.com/EmanuelePapini/FIF_C"
 )
-
-## Method citations
 
 bibentry(
   bibtype = "Article",
-  title   = "Adaptive Local Iterative Filtering for Signal Decomposition and Instantaneous Frequency analysis",
-  author  = c(person("Antonio ", "Cicone"),person("Jingfang","Liu"),person("Haomin","Zhou")),
-  year    = "2015",
+  title   = "Adaptive Local Iterative Filtering for Signal Decomposition and Instantaneous Frequency Analysis",
+  author  = c(
+    person("Antonio", "Cicone"),
+    person("Jingfang", "Liu"),
+    person("Haomin", "Zhou")
+  ),
+  year    = "2016",
   journal = "Applied and Computational Harmonic Analysis",
   volume  = "41",
   number  = "2",
-  month   = "September",
-  pages   = "384-411",
-  doi     = "https://doi.org/10.1016/j.acha.2016.03.001",
-  url     = "https://www.sciencedirect.com/science/article/pii/S1063520316000129",
-  textVersion = paste(
-    "Cicone, A., Liu, J. and Zhou, H. (2015).",
-    "Adaptive Local Iterative Filtering for Signal Decomposition and Instantaneous Frequency analysis,",
-    "Applied and Computational Harmonic Analysis, Volume 41, Issue 2, September 2016, Pages 384-411.",
-    "Available at https://www.sciencedirect.com/science/article/pii/S1063520316000129"
-  )
+  pages   = "384--411",
+  doi     = "10.1016/j.acha.2016.03.001",
+  textVersion =
+    "Cicone, A., Liu, J., and Zhou, H. (2016). Adaptive Local Iterative Filtering for Signal Decomposition and Instantaneous Frequency Analysis. Applied and Computational Harmonic Analysis, 41(2), 384--411. doi:10.1016/j.acha.2016.03.001"
 )
 
 bibentry(
   bibtype = "Misc",
   title   = "Numerical Analysis for Iterative Filtering with New Efficient Implementations Based on FFT",
-  author  = c(person("Antonio ", "Cicone"),person("Haomin","Zhou")),
+  author  = c(
+    person("Antonio", "Cicone"),
+    person("Haomin", "Zhou")
+  ),
   year    = "2018",
   eprinttype = "arXiv",
-  eprint = "1802.01359",
+  eprint  = "1802.01359",
   eprintclass = "math.NA",
-  doi     = "https://doi.org/10.48550/arXiv.1802.01359",
-  url     = "https://arxiv.org/abs/1802.01359",
-  textVersion = paste(
-    "Cicone, A. and Zhou, H. (2018).",
-    "Numerical Analysis for Iterative Filtering with New Efficient Implementations Based on FFT,",
-    "ArXiv preprint 1802.01359.",
-    "Available at https://arxiv.org/abs/1802.01359"
-  )
+  doi     = "10.48550/arXiv.1802.01359",
+  textVersion =
+    "Cicone, A. and Zhou, H. (2018). Numerical Analysis for Iterative Filtering with New Efficient Implementations Based on FFT. arXiv:1802.01359. doi:10.48550/arXiv.1802.01359"
 )
 
 bibentry(
   bibtype = "Article",
-  title   = "New insights and best practices for the successful use of Empirical Mode Decomposition, Iterative Filtering and derived algorithms",
-  author  = c(person("Angela", "Stallone"),person("Antonio ", "Cicone"),person("Massimo ", "Materassi")),
+  title   = "New Insights and Best Practices for the Successful Use of Empirical Mode Decomposition, Iterative Filtering, and Derived Algorithms",
+  author  = c(
+    person("Angela", "Stallone"),
+    person("Antonio", "Cicone"),
+    person("Massimo", "Materassi")
+  ),
   year    = "2020",
   journal = "Scientific Reports",
   volume  = "10",
-  number  = "15161",
-  doi     = "https://doi.org/10.1038/s41598-020-72193-2",
-  url     = "https://www.nature.com/articles/s41598-020-72193-2",
-  textVersion = paste(
-    "Stallone, A., Cicone, A. and Materassi, M.",
-    "New insights and best practices for the successful use of Empirical Mode Decomposition, Iterative Filtering and derived algorithms,",
-    "Scientific Reports, Volume 10, Article number 15161, 2020.",
-    "Available at https://www.nature.com/articles/s41598-020-72193-2"
-  )
+  pages   = "15161",
+  doi     = "10.1038/s41598-020-72193-2",
+  textVersion =
+    "Stallone, A., Cicone, A., and Materassi, M. (2020). New Insights and Best Practices for the Successful Use of Empirical Mode Decomposition, Iterative Filtering, and Derived Algorithms. Scientific Reports, 10, 15161. doi:10.1038/s41598-020-72193-2"
 )
