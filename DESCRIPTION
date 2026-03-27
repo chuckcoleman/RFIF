@@ -2,17 +2,14 @@ Package: RFIF
 Type: Package
 Title: Fast Iterative Filtering (FIF) with Portable FFT Backend
 Version: 1.0
-Authors@R: c(
-    person("Chuck", "Coleman", role = c("aut","cre"), email = "cdcoleman113@gmail.com"),
-    person("Emanuele", "Papini", role = "ctb"),
-    person("Igor", "Bertello", role = "ctb"),
-    person("Antonio", "Cicone", role = "ctb")
- )
+Authors@R: 
+    person("Chuck", "Coleman", role = c("aut","cre"), email = "cdcoleman113@gmail.com",
+    	comment = c(ORCID = "0000-0001-6940-8117"))
 Description: Provides an R interface to a C implementation of Fast Iterative Filtering (FIF)
     for decomposing a univariate signal into intrinsic mode functions (IMFs) and a residual.
-    The package uses FFTW-3, if found.  If not, it provides instructions to install it for
-    your OS.  This is recommended, as R's internal fft(), while avoiding external FFT
-    dependencies, is two orders of magnitude slower.
+    The package uses Fast Fourier Transform library FFTW, if found.  If not, it provides
+    instructions to install it for your OS.  This is recommended, as R's internal fft(), while
+    avoiding external FFT dependencies, is two orders of magnitude slower.
 Suggests: testthat (>= 3.0.0),
     knitr,
     rmarkdown
