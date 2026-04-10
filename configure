@@ -1,17 +1,22 @@
 #!/bin/sh
-# configure: optional FFTW3 detection via pkg-config
-# Also detects Apple clang to silence R header warnings only when needed.
+# configure: optional FFTW detection via pkg-config
+# Current code references both fftwl_* and fftw_* symbols,
+# so prefer linking both fftw3l and fftw3 when available.
 
 echo "Configuring RFIF..."
+echo "  configure path: $(pwd)"
 
 FFTW_CFLAGS=""
 FFTW_LIBS=""
 RFIF_EXTRA_CFLAGS=""
+PKGCONF="${PKG_CONFIG:-pkg-config}"
+echo "  PKG_CONFIG env: ${PKG_CONFIG:-<unset>}"
+echo "  PKGCONF resolved: $PKGCONF"
 
 # ------------------------------------------------------------
-# Detect compiler (needed for Apple clang R header workaround)
+# Detect compiler (for optional warning suppression macro)
 # ------------------------------------------------------------
-if command -v "${CC}" >/dev/null 2>&1; then
+if [ -n "${CC}" ] && command -v "${CC}" >/dev/null 2>&1; then
   CC_NAME="$(${CC} --version 2>/dev/null | head -n 1)"
 else
   CC_NAME=""
@@ -24,36 +29,90 @@ case "$CC_NAME" in
 esac
 
 # ------------------------------------------------------------
-# Detect FFTW3 via pkg-config (portable approach)
+# Augment PKG_CONFIG_PATH with common pkg-config directories
+# so R installs can find fftw3l.pc even when the session did
+# not inherit the user's shell environment.
 # ------------------------------------------------------------
-if command -v pkg-config >/dev/null 2>&1; then
-  if pkg-config --exists fftw3; then
+ORIG_PKG_CONFIG_PATH="${PKG_CONFIG_PATH:-}"
+for d in /opt/local/lib/pkgconfig /usr/local/lib/pkgconfig /opt/homebrew/lib/pkgconfig; do
+  if [ -d "$d" ]; then
+    case ":${PKG_CONFIG_PATH:-}:" in
+      *":$d:"*) ;;
+      *)
+        if [ -n "${PKG_CONFIG_PATH:-}" ]; then
+          PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:$d"
+        else
+          PKG_CONFIG_PATH="$d"
+        fi
+        ;;
+    esac
+  fi
+done
+export PKG_CONFIG_PATH
 
-    FFTW_INC="$(pkg-config --variable=includedir fftw3 2>/dev/null)"
+echo "  PKG_CONFIG_PATH before: ${ORIG_PKG_CONFIG_PATH:-<unset>}"
+echo "  PKG_CONFIG_PATH used:   ${PKG_CONFIG_PATH:-<unset>}"
 
+# ------------------------------------------------------------
+# Detect FFTW via pkg-config
+# Code currently mixes fftwl_* and fftw_* symbols, so when
+# possible link both fftw3l and fftw3.
+# ------------------------------------------------------------
+if [ "$PKGCONF" = "false" ]; then
+  echo "  pkg-config disabled; using fallback FFT."
+elif command -v "$PKGCONF" >/dev/null 2>&1; then
+
+  if "$PKGCONF" --exists fftw3l && "$PKGCONF" --exists fftw3; then
+
+    FFTW_INC="$($PKGCONF --variable=includedir fftw3l 2>/dev/null)"
     if [ -n "$FFTW_INC" ]; then
       FFTW_CFLAGS="-DRFIF_USE_FFTW -isystem $FFTW_INC"
     else
-      FFTW_CFLAGS="$(pkg-config --cflags fftw3) -DRFIF_USE_FFTW"
+      FFTW_CFLAGS="$($PKGCONF --cflags fftw3l) -DRFIF_USE_FFTW"
     fi
 
-    FFTW_LIBS="$(pkg-config --libs fftw3)"
+    FFTW_LIBS="$($PKGCONF --libs fftw3l) $($PKGCONF --libs fftw3)"
+    echo "  Found fftw3l and fftw3 via pkg-config (enabling fast FFT)."
 
+  elif "$PKGCONF" --exists fftw3l; then
+
+    FFTW_INC="$($PKGCONF --variable=includedir fftw3l 2>/dev/null)"
+    if [ -n "$FFTW_INC" ]; then
+      FFTW_CFLAGS="-DRFIF_USE_FFTW -isystem $FFTW_INC"
+    else
+      FFTW_CFLAGS="$($PKGCONF --cflags fftw3l) -DRFIF_USE_FFTW"
+    fi
+
+    FFTW_LIBS="$($PKGCONF --libs fftw3l)"
+    echo "  Found fftw3l via pkg-config (enabling fast FFT)."
+
+  elif "$PKGCONF" --exists fftw3; then
+
+    FFTW_INC="$($PKGCONF --variable=includedir fftw3 2>/dev/null)"
+    if [ -n "$FFTW_INC" ]; then
+      FFTW_CFLAGS="-DRFIF_USE_FFTW -isystem $FFTW_INC"
+    else
+      FFTW_CFLAGS="$($PKGCONF --cflags fftw3) -DRFIF_USE_FFTW"
+    fi
+
+    FFTW_LIBS="$($PKGCONF --libs fftw3)"
     echo "  Found fftw3 via pkg-config (enabling fast FFT)."
 
   else
-    echo "  fftw3 not found via pkg-config; using fallback FFT."
+    echo "  fftw3/fftw3l not found via pkg-config; using fallback FFT."
   fi
+
 else
   echo "  pkg-config not found; using fallback FFT."
 fi
 
 # ------------------------------------------------------------
-# Generate portable src/Makevars
+# Generate src/Makevars from template
 # ------------------------------------------------------------
-sed -e "s|@FFTW_CFLAGS@|$FFTW_CFLAGS $RFIF_EXTRA_CFLAGS|g" \
-    -e "s|@FFTW_LIBS@|$FFTW_LIBS|g" \
-    src/Makevars.in > src/Makevars
+sed \
+  -e "s|@FFTW_CFLAGS@|$FFTW_CFLAGS $RFIF_EXTRA_CFLAGS|g" \
+  -e "s|@FFTW_LIBS@|$FFTW_LIBS|g" \
+  src/Makevars.in > src/Makevars
 
 echo "Done."
 exit 0

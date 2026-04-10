@@ -1,0 +1,297 @@
+---
+title: "Installing FFTW for RFIF"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_document:
+    toc: false
+fontsize: 11pt
+geometry: margin=1in
+vignette: >
+  %\VignetteIndexEntry{Installing FFTW for RFIF}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+`RFIF` can be built in two modes:
+
+1. **FFTW mode**, which uses FFTW for faster Fourier transforms.
+2. **Fallback mode**, which does not require FFTW and is intended for systems
+   where FFTW is unavailable.
+
+During installation, `RFIF` checks whether `pkg-config` can locate FFTW. If so,
+the package enables the FFTW-backed build. If not, the package falls back to
+the non-FFTW implementation. FFTW itself supports separate precision builds,
+including long-double builds enabled with `--enable-long-double`.
+
+In the current `RFIF` build setup, the FFTW-enabled path uses `pkg-config` to
+discover FFTW and links the appropriate FFTW libraries when available. In the
+fallback path, the final link step omits FFTW libraries entirely.
+
+This vignette shows how to install FFTW so that `RFIF` can use the faster path
+on Windows, macOS, and Linux.
+
+## Before installing RFIF
+
+It is useful to check whether FFTW is already visible to `pkg-config`:
+
+```bash
+pkg-config --exists fftw3l && echo found
+pkg-config --cflags fftw3l
+pkg-config --libs fftw3l
+```
+
+If these commands succeed, `RFIF` should generally detect FFTW during
+installation. If they fail, install FFTW and, if needed, update
+`PKG_CONFIG_PATH`.
+
+You can also inspect the default `pkg-config` search path:
+
+```bash
+pkg-config --variable pc_path pkg-config
+```
+
+And you can search for the FFTW pkg-config file directly:
+
+```bash
+find /usr /usr/local /opt/local /opt/homebrew -name 'fftw3l.pc' 2>/dev/null
+```
+
+## Windows
+
+FFTW’s Windows installation notes continue to recommend a MinGW-style toolchain
+rather than a native Windows-specific package-manager workflow.
+
+A common route is:
+
+1. install a GNU-style toolchain such as **MSYS2/MinGW**,
+2. build FFTW from source,
+3. ensure `pkg-config` can find `fftw3l.pc`.
+
+After unpacking the FFTW source, a typical build is:
+
+```bash
+./configure --enable-long-double --enable-shared
+make
+make install
+```
+
+If the installation places `fftw3l.pc` outside the default `pkg-config` search
+path, set `PKG_CONFIG_PATH`. For example:
+
+```bash
+export PKG_CONFIG_PATH=/mingw64/lib/pkgconfig:$PKG_CONFIG_PATH
+```
+
+Then verify:
+
+```bash
+pkg-config --cflags fftw3l
+pkg-config --libs fftw3l
+```
+
+If Windows installation proves cumbersome, `RFIF` can still be installed in
+fallback mode, described below. FFTW’s own Windows documentation remains
+centered on MinGW-style builds, so this is usually the most reliable route when
+FFTW speed is needed.
+
+## macOS
+
+On macOS, the easiest installation path is usually Homebrew:
+
+```bash
+brew install fftw
+```
+
+After installation, check:
+
+```bash
+pkg-config --cflags fftw3l
+pkg-config --libs fftw3l
+```
+
+If `pkg-config` still cannot find FFTW, inspect the search path and locate the
+`.pc` file:
+
+```bash
+pkg-config --variable pc_path pkg-config
+find /opt/homebrew /usr/local /opt/local -name 'fftw3l.pc' 2>/dev/null
+```
+
+Typical macOS settings are:
+
+For Apple Silicon Homebrew:
+
+```bash
+export PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH"
+```
+
+For Intel Homebrew:
+
+```bash
+export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+```
+
+FFTW can also be built from source on macOS using the same standard Unix build
+steps:
+
+```bash
+./configure --enable-long-double --enable-shared
+make
+sudo make install
+```
+
+## Linux
+
+### Debian and Ubuntu
+
+Install FFTW development headers and `pkg-config` with:
+
+```bash
+sudo apt-get update
+sudo apt-get install libfftw3-dev pkg-config
+```
+
+Then verify:
+
+```bash
+pkg-config --cflags fftw3l
+pkg-config --libs fftw3l
+```
+
+### Fedora
+
+Install:
+
+```bash
+sudo dnf install fftw-devel pkgconf-pkg-config
+```
+
+Then verify:
+
+```bash
+pkg-config --cflags fftw3l
+pkg-config --libs fftw3l
+```
+
+### Source builds on Linux
+
+If your distribution packages are unavailable or unsuitable, build FFTW from
+source:
+
+```bash
+./configure --enable-long-double --enable-shared
+make
+sudo make install
+```
+
+If installed into a nonstandard prefix, update `PKG_CONFIG_PATH`. A common
+setting is:
+
+```bash
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+```
+
+## Installing RFIF
+
+Once FFTW is visible through `pkg-config`, install `RFIF` normally:
+
+```bash
+R CMD INSTALL RFIF
+```
+
+On a successful FFTW-enabled build, the configure step should report that FFTW
+was found, and the final link step should include FFTW libraries.
+
+## Forcing fallback mode
+
+To test or use the non-FFTW build explicitly:
+
+```bash
+env PKG_CONFIG=false R CMD INSTALL --preclean --no-test-load ./RFIF
+```
+
+In the fallback path, the configure step should report that `pkg-config` is
+disabled and the final link step should omit FFTW libraries.
+
+Fallback mode is useful when:
+
+- FFTW is not installed,
+- `pkg-config` cannot find FFTW,
+- or you want to confirm that the package still installs without FFTW.
+
+## Troubleshooting
+
+### `pkg-config` cannot find `fftw3l`
+
+Check:
+
+```bash
+pkg-config --variable pc_path pkg-config
+find /usr /usr/local /opt/local /opt/homebrew -name 'fftw3l.pc' 2>/dev/null
+```
+
+If `fftw3l.pc` exists but is outside the search path, export
+`PKG_CONFIG_PATH` to the containing directory.
+
+### Headers are found but linking fails
+
+Check the exact flags returned by `pkg-config`:
+
+```bash
+pkg-config --cflags fftw3l
+pkg-config --libs fftw3l
+```
+
+If headers and libraries come from different installation prefixes, installation
+may fail or pick up inconsistent flags.
+
+### Windows setup is difficult
+
+Start with fallback mode first:
+
+```bash
+env PKG_CONFIG=false R CMD INSTALL --preclean --no-test-load ./RFIF
+```
+
+Then return to a MinGW/MSYS-based FFTW installation if you need the faster
+FFTW-backed path.
+
+## Verifying the result
+
+You can capture the installation log for inspection.
+
+Normal build:
+
+```bash
+R CMD INSTALL --preclean ./RFIF > normal.log 2>&1
+```
+
+Fallback build:
+
+```bash
+env PKG_CONFIG=false R CMD INSTALL --preclean --no-test-load ./RFIF > fallback_build.log 2>&1
+```
+
+In a normal build, the configure output should indicate that FFTW was found and
+the final link line should include FFTW libraries. In a fallback build, the
+configure output should indicate that fallback FFT is being used and the final
+link line should omit FFTW libraries.
+
+## Summary
+
+`RFIF` supports both an FFTW-backed build and a fallback build.
+
+- On **Windows**, use a MinGW/MSYS-style source build of FFTW.
+- On **macOS**, `brew install fftw` is usually the simplest solution.
+- On **Debian/Ubuntu**, install `libfftw3-dev` and `pkg-config`.
+- On **Fedora**, install `fftw-devel` and `pkgconf-pkg-config`.
+- If FFTW is unavailable, `RFIF` can still build in fallback mode.

@@ -1,307 +1,276 @@
-/*
-  FFT backend for RFIF.
+/* 
+    FFT backend for RFIF
 
-  Preferred backend (when available): FFTW3 (fast).
-  Fallback backend: self-contained FFT (portable, slower).
+    Provides a single wrapper API for:
+      - FFTW-backed execution when RFIF_USE_FFTW is defined
+      - portable direct-DFT fallback otherwise
 
-  The FFTW path is enabled when the package is configured with -DRFIF_USE_FFTW
-  and linked with fftw3.
+    Public API expected by FFT.h:
+      double*      realFFT(double *x, int N);
+      fif_complex* fft_dir(double *x, int N);
+      double*      fft_inv(fif_complex *X, int N);
 */
 
-#include "rfif_r.h"
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
+
 #include "FFT.h"
 
 #ifdef RFIF_USE_FFTW
 #include <fftw3.h>
+#endif
 
-double* realFFT(double *f, int N) {
-  double *in = (double*)fftw_malloc(sizeof(double) * (size_t)N);
-  fftw_complex *out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (size_t)(N/2 + 1));
-  double *re = (double*)malloc(sizeof(double) * (size_t)N);
-  if (!in || !out || !re) {
-    if (in) fftw_free(in);
-    if (out) fftw_free(out);
-    free(re);
-    error("RFIF FFTW: allocation failed");
-  }
-  for (int i=0;i<N;i++) in[i] = f[i];
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
-  fftw_plan p = fftw_plan_dft_r2c_1d(N, in, out, FFTW_ESTIMATE);
-  if (!p) {
-    fftw_free(in); fftw_free(out); free(re);
-    error("RFIF FFTW: plan creation failed");
-  }
-  fftw_execute(p);
+/* ----------------------------- */
+/* Internal helpers (fallback)   */
+/* ----------------------------- */
 
-  re[0] = out[0][0];
-  for (int k=1;k<N/2;k++) {
-    re[k] = out[k][0];
-    re[N-k] = out[k][0];
-  }
-  if (N % 2 == 0) re[N/2] = out[N/2][0];
+/* ----------------------------- */
+/* realFFT                       */
+/* ----------------------------- */
+/*
+   Returns the real part of the forward transform of x.
 
-  fftw_destroy_plan(p);
-  fftw_free(in);
-  fftw_free(out);
-  return re;
-}
+   Caller owns the returned buffer and must free() it.
+*/
+double *realFFT(double *x, int N)
+{
+    double *out = NULL;
 
-fif_complex* fft_dir(double *f, int N) {
-  double *in = (double*)fftw_malloc(sizeof(double) * (size_t)N);
-  fftw_complex *out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (size_t)(N/2 + 1));
-  fif_complex *X = (fif_complex*)malloc(sizeof(fif_complex) * (size_t)N);
-  if (!in || !out || !X) {
-    if (in) fftw_free(in);
-    if (out) fftw_free(out);
-    free(X);
-    error("RFIF FFTW: allocation failed");
-  }
-  for (int i=0;i<N;i++) in[i] = f[i];
+    if (x == NULL || N <= 0)
+        return NULL;
 
-  fftw_plan p = fftw_plan_dft_r2c_1d(N, in, out, FFTW_ESTIMATE);
-  if (!p) {
-    fftw_free(in); fftw_free(out); free(X);
-    error("RFIF FFTW: plan creation failed");
-  }
-  fftw_execute(p);
+    out = (double *)calloc((size_t)N, sizeof(double));
+    if (out == NULL)
+        return NULL;
 
-  X[0].re = out[0][0]; X[0].im = out[0][1];
-  for (int k=1;k<N/2;k++) {
-    X[k].re = out[k][0]; X[k].im = out[k][1];
-    X[N-k].re = out[k][0]; X[N-k].im = -out[k][1];
-  }
-  if (N % 2 == 0) {
-    X[N/2].re = out[N/2][0]; X[N/2].im = out[N/2][1];
-  }
+#ifdef RFIF_USE_FFTW
+    {
+        fftw_complex *in = NULL, *freq = NULL;
+        fftw_plan plan;
 
-  fftw_destroy_plan(p);
-  fftw_free(in);
-  fftw_free(out);
-  return X;
-}
+        in = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * (size_t)N);
+        freq = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * (size_t)N);
+        if (in == NULL || freq == NULL)
+        {
+            if (in != NULL) fftw_free(in);
+            if (freq != NULL) fftw_free(freq);
+            free(out);
+            return NULL;
+        }
 
-double* fft_inv(fif_complex *X, int N) {
-  fftw_complex *in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (size_t)(N/2 + 1));
-  double *out = (double*)fftw_malloc(sizeof(double) * (size_t)N);
-  double *f = (double*)malloc(sizeof(double) * (size_t)N);
-  if (!in || !out || !f) {
-    if (in) fftw_free(in);
-    if (out) fftw_free(out);
-    free(f);
-    error("RFIF FFTW: allocation failed");
-  }
+        for (int k = 0; k < N; ++k)
+        {
+            in[k][0] = x[k];
+            in[k][1] = 0.0;
+        }
 
-  in[0][0] = X[0].re; in[0][1] = X[0].im;
-  for (int k=1;k<N/2;k++) {
-    in[k][0] = X[k].re; in[k][1] = X[k].im;
-  }
-  if (N % 2 == 0) {
-    in[N/2][0] = X[N/2].re; in[N/2][1] = X[N/2].im;
-  }
+        plan = fftw_plan_dft_1d(N, in, freq, FFTW_FORWARD, FFTW_ESTIMATE);
+        if (plan == NULL)
+        {
+            fftw_free(in);
+            fftw_free(freq);
+            free(out);
+            return NULL;
+        }
 
-  fftw_plan p = fftw_plan_dft_c2r_1d(N, in, out, FFTW_ESTIMATE);
-  if (!p) {
-    fftw_free(in); fftw_free(out); free(f);
-    error("RFIF FFTW: plan creation failed");
-  }
-  fftw_execute(p);
+        fftw_execute(plan);
 
-  for (int i=0;i<N;i++) f[i] = out[i] / (double)N;
+        for (int k = 0; k < N; ++k)
+            out[k] = freq[k][0];
 
-  fftw_destroy_plan(p);
-  fftw_free(in);
-  fftw_free(out);
-  return f;
-}
-
-#else  /* RFIF_USE_FFTW */
-
-/* ---- Fallback: self-contained FFT (portable, slower) ---- */
-typedef struct { double re; double im; } cpx;
-
-static inline cpx c_add(cpx a, cpx b){ cpx r = {a.re+b.re, a.im+b.im}; return r; }
-static inline cpx c_sub(cpx a, cpx b){ cpx r = {a.re-b.re, a.im-b.im}; return r; }
-static inline cpx c_mul(cpx a, cpx b){
-  cpx r = {a.re*b.re - a.im*b.im, a.re*b.im + a.im*b.re};
-  return r;
-}
-static inline cpx c_exp_i(double theta){
-  cpx r = {cos(theta), sin(theta)};
-  return r;
-}
-
-/* Return smallest factor >1 of n, or n if prime. */
-static int smallest_factor(int n){
-  if(n % 2 == 0) return 2;
-  for(int p=3; p*(long)p <= n; p += 2){
-    if(n % p == 0) return p;
-  }
-  return n;
-}
-
-/* Naive DFT (used for prime sizes). inverse=0 forward, inverse=1 inverse (unnormalized). */
-static void dft_naive(const cpx *in, cpx *out, int n, int inverse){
-  double sign = inverse ? 1.0 : -1.0;
-  for(int k=0;k<n;k++){
-    double sum_re=0.0, sum_im=0.0;
-    for(int t=0;t<n;t++){
-      double ang = sign * 2.0 * M_PI * (double)k * (double)t / (double)n;
-      double ca = cos(ang), sa = sin(ang);
-      /* in[t] * exp(i ang) */
-      sum_re += in[t].re*ca - in[t].im*sa;
-      sum_im += in[t].re*sa + in[t].im*ca;
+        fftw_destroy_plan(plan);
+        fftw_free(in);
+        fftw_free(freq);
     }
-    out[k].re = sum_re;
-    out[k].im = sum_im;
-  }
-}
+#else
+    {
+        for (int k = 0; k < N; ++k)
+        {
+            double sum_re = 0.0;
 
-/* Recursive mixed-radix FFT. */
-static void fft_rec(const cpx *in, cpx *out, int n, int inverse){
-  if(n == 1){
-    out[0] = in[0];
-    return;
-  }
-  int p = smallest_factor(n);
-  if(p == n){
-    dft_naive(in, out, n, inverse);
-    return;
-  }
-  int m = n / p;
+            for (int n = 0; n < N; ++n)
+            {
+                double angle = -2.0 * M_PI * (double)k * (double)n / (double)N;
+                sum_re += x[n] * cos(angle);
+            }
 
-  /* Step 1: compute p FFTs of size m on decimated sequences */
-  cpx *tmp = (cpx*)malloc(sizeof(cpx) * (size_t)n);
-  cpx *buf_in  = (cpx*)malloc(sizeof(cpx) * (size_t)m);
-  cpx *buf_out = (cpx*)malloc(sizeof(cpx) * (size_t)m);
-  if(!tmp || !buf_in || !buf_out){
-    free(tmp); free(buf_in); free(buf_out);
-    error("RFIF FFT: out of memory");
-  }
-
-  for(int r=0;r<p;r++){
-    for(int j=0;j<m;j++){
-      buf_in[j] = in[j*p + r];
+            out[k] = sum_re;
+        }
     }
-    fft_rec(buf_in, buf_out, m, inverse);
-    for(int j=0;j<m;j++){
-      tmp[r*m + j] = buf_out[j];
+#endif
+
+    return out;
+}
+
+/* ----------------------------- */
+/* fft_dir                       */
+/* ----------------------------- */
+/*
+   Forward transform of a real-valued signal into fif_complex.
+
+   Caller owns the returned buffer and must free() it.
+*/
+fif_complex *fft_dir(double *x, int N)
+{
+    fif_complex *out = NULL;
+
+    if (x == NULL || N <= 0)
+        return NULL;
+
+    out = (fif_complex *)calloc((size_t)N, sizeof(fif_complex));
+    if (out == NULL)
+        return NULL;
+
+#ifdef RFIF_USE_FFTW
+    {
+        fftw_complex *in = NULL, *freq = NULL;
+        fftw_plan plan;
+
+        in = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * (size_t)N);
+        freq = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * (size_t)N);
+        if (in == NULL || freq == NULL)
+        {
+            if (in != NULL) fftw_free(in);
+            if (freq != NULL) fftw_free(freq);
+            free(out);
+            return NULL;
+        }
+
+        for (int n = 0; n < N; ++n)
+        {
+            in[n][0] = x[n];
+            in[n][1] = 0.0;
+        }
+
+        plan = fftw_plan_dft_1d(N, in, freq, FFTW_FORWARD, FFTW_ESTIMATE);
+        if (plan == NULL)
+        {
+            fftw_free(in);
+            fftw_free(freq);
+            free(out);
+            return NULL;
+        }
+
+        fftw_execute(plan);
+
+        for (int k = 0; k < N; ++k)
+        {
+            out[k].re = freq[k][0];
+            out[k].im = freq[k][1];
+        }
+
+        fftw_destroy_plan(plan);
+        fftw_free(in);
+        fftw_free(freq);
     }
-  }
+#else
+    {
+        for (int k = 0; k < N; ++k)
+        {
+            double sum_re = 0.0;
+            double sum_im = 0.0;
 
-  /* Step 2: combine with twiddle factors */
-  double sign = inverse ? 1.0 : -1.0;
-  for(int k=0;k<n;k++){
-    int q = k / m;      /* 0..p-1 */
-    int s = k % m;      /* 0..m-1 */
-    cpx acc = {0.0, 0.0};
-    for(int r=0;r<p;r++){
-      /* twiddle: exp(sign * 2pi i * r * k / n) */
-      double ang = sign * 2.0 * M_PI * (double)r * (double)k / (double)n;
-      cpx w = c_exp_i(ang);
-      acc = c_add(acc, c_mul(tmp[r*m + s], w));
+            for (int n = 0; n < N; ++n)
+            {
+                double angle = -2.0 * M_PI * (double)k * (double)n / (double)N;
+                double ca = cos(angle);
+                double sa = sin(angle);
+
+                sum_re += x[n] * ca;
+                sum_im += x[n] * sa;
+            }
+
+            out[k].re = sum_re;
+            out[k].im = sum_im;
+        }
     }
-    out[k] = acc;
-  }
+#endif
 
-  free(tmp);
-  free(buf_in);
-  free(buf_out);
+    return out;
 }
 
-static void rfif_fft_inplace(double *re, double *im, int n, int inverse){
-  cpx *in  = (cpx*)malloc(sizeof(cpx) * (size_t)n);
-  cpx *out = (cpx*)malloc(sizeof(cpx) * (size_t)n);
-  if(!in || !out){
-    free(in); free(out);
-    error("RFIF FFT: allocation failed");
-  }
-  for(int i=0;i<n;i++){
-    in[i].re = re[i];
-    in[i].im = im ? im[i] : 0.0;
-  }
+/* ----------------------------- */
+/* fft_inv                       */
+/* ----------------------------- */
+/*
+   Inverse transform from fif_complex to a real-valued signal.
 
-  fft_rec(in, out, n, inverse);
+   Caller owns the returned buffer and must free() it.
+*/
+double *fft_inv(fif_complex *X, int N)
+{
+    double *out = NULL;
 
-  /* Normalize inverse */
-  if(inverse){
-    for(int i=0;i<n;i++){
-      re[i] = out[i].re / (double)n;
-      if(im) im[i] = out[i].im / (double)n;
+    if (X == NULL || N <= 0)
+        return NULL;
+
+    out = (double *)calloc((size_t)N, sizeof(double));
+    if (out == NULL)
+        return NULL;
+
+#ifdef RFIF_USE_FFTW
+    {
+        fftw_complex *in = NULL, *time = NULL;
+        fftw_plan plan;
+
+        in = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * (size_t)N);
+        time = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * (size_t)N);
+        if (in == NULL || time == NULL)
+        {
+            if (in != NULL) fftw_free(in);
+            if (time != NULL) fftw_free(time);
+            free(out);
+            return NULL;
+        }
+
+        for (int k = 0; k < N; ++k)
+        {
+            in[k][0] = X[k].re;
+            in[k][1] = X[k].im;
+        }
+
+        plan = fftw_plan_dft_1d(N, in, time, FFTW_BACKWARD, FFTW_ESTIMATE);
+        if (plan == NULL)
+        {
+            fftw_free(in);
+            fftw_free(time);
+            free(out);
+            return NULL;
+        }
+
+        fftw_execute(plan);
+
+        for (int n = 0; n < N; ++n)
+            out[n] = time[n][0] / (double)N;
+
+        fftw_destroy_plan(plan);
+        fftw_free(in);
+        fftw_free(time);
     }
-  }else{
-    for(int i=0;i<n;i++){
-      re[i] = out[i].re;
-      if(im) im[i] = out[i].im;
+#else
+    {
+        for (int n = 0; n < N; ++n)
+        {
+            double sum_re = 0.0;
+
+            for (int k = 0; k < N; ++k)
+            {
+                double angle = 2.0 * M_PI * (double)k * (double)n / (double)N;
+                double ca = cos(angle);
+                double sa = sin(angle);
+
+                sum_re += X[k].re * ca - X[k].im * sa;
+            }
+
+            out[n] = sum_re / (double)N;
+        }
     }
-  }
+#endif
 
-  free(in);
-  free(out);
+    return out;
 }
-
-double* realFFT(double *f, int N) {
-  double *re = (double*) malloc(sizeof(double) * (size_t)N);
-  double *im = (double*) calloc((size_t)N, sizeof(double));
-  if (!re || !im) {
-    free(re); free(im);
-    error("Allocation failed in realFFT");
-  }
-  for (int i = 0; i < N; ++i) re[i] = f[i];
-
-  rfif_fft_inplace(re, im, N, 0);
-
-  free(im);
-  return re;
-}
-
-fif_complex* fft_dir(double *f, int N) {
-  double *re = (double*) malloc(sizeof(double) * (size_t)N);
-  double *im = (double*) calloc((size_t)N, sizeof(double));
-  fif_complex *out = (fif_complex*) malloc(sizeof(fif_complex) * (size_t)N);
-
-  if (!re || !im || !out) {
-    free(re); free(im); free(out);
-    error("Allocation failed in fft_dir");
-  }
-
-  for (int i = 0; i < N; ++i) re[i] = f[i];
-
-  rfif_fft_inplace(re, im, N, 0);
-
-  for (int i = 0; i < N; ++i) {
-    out[i].re = re[i];
-    out[i].im = im[i];
-  }
-
-  free(re);
-  free(im);
-  return out;
-}
-
-double* fft_inv(fif_complex *X, int N) {
-  double *re = (double*) malloc(sizeof(double) * (size_t)N);
-  double *im = (double*) malloc(sizeof(double) * (size_t)N);
-  double *out = (double*) malloc(sizeof(double) * (size_t)N);
-
-  if (!re || !im || !out) {
-    free(re); free(im); free(out);
-    error("Allocation failed in fft_inv");
-  }
-
-  for (int i = 0; i < N; ++i) {
-    re[i] = X[i].re;
-    im[i] = X[i].im;
-  }
-
-  rfif_fft_inplace(re, im, N, 1);
-
-  for (int i = 0; i < N; ++i) out[i] = re[i];
-
-  free(re);
-  free(im);
-  return out;
-}
-
-#endif /* RFIF_USE_FFTW */
