@@ -1,0 +1,2 @@
+PKG_CFLAGS = -DRFIF_USE_FFTW -isystem /opt/local/include 
+PKG_LIBS = -L/opt/local/lib -lfftw3l -L/opt/local/lib -lfftw3

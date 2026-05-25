@@ -16,14 +16,11 @@
 #include <stdio.h>
 #include <memory.h>
 #include <math.h>
-#include <stdbool.h>
+#include <fftw3.h>
 #include "FFT.h"
 #include "Fif.h"
 #include "interp.h"
-
-#ifdef RFIF_USE_FFTW
-#include <fftw3.h>
-#endif
+#include <stdbool.h>
 
 #define DELTA 0.001
 #define MaxInner 200
@@ -538,7 +535,7 @@ Fif_t FIF_v2_1(double *f, int N, int *maxIMF)
         f[i] /= Norm1;
 
     N_r = 0;
-    fappo = (double *)malloc(sizeof(double) * (N + 11));
+    fappo = (double *)calloc((size_t)(N + 11), sizeof(double));
     if (fappo == NULL)
         goto cleanup_success;
     fappoB = 1;
@@ -707,8 +704,8 @@ Fif_t FIF_v2_1(double *f, int N, int *maxIMF)
             mappoB = 0;
         }
 
-        ffth_new = (fif_complex *)calloc((size_t)N_r, sizeof(fif_complex));
-        ffth_old = (fif_complex *)calloc((size_t)N_r, sizeof(fif_complex));
+        ffth_new = (fif_complex *)malloc(sizeof(fif_complex) * N_r);
+        ffth_old = (fif_complex *)malloc(sizeof(fif_complex) * N_r);
         fftH = fft_dir(h, N_r);
         if (ffth_new == NULL || ffth_old == NULL || fftH == NULL)
             goto cleanup_success;
@@ -812,7 +809,7 @@ Fif_t FIF_v2_1(double *f, int N, int *maxIMF)
 
         N_r = 0;
 
-        fappo = (double *)malloc(sizeof(double) * (N + 10));
+        fappo = (double *)calloc((size_t)(N + 10), sizeof(double));
         if (fappo == NULL)
             goto cleanup_success;
         fappoB = 1;

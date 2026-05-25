@@ -1,7 +1,7 @@
 Package: RFIF
 Type: Package
 Title: Fast Iterative Filtering (FIF) with Portable FFT Backend
-Version: 1.0.1
+Version: 1.0.2
 Authors@R: 
     person("Chuck", "Coleman", role = c("aut","cre"), email = "cdcoleman113@gmail.com",
     	comment = c(ORCID = "0000-0001-6940-8117"))
